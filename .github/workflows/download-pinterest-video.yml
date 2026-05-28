@@ -1,3 +1,4 @@
+```yaml
 name: دانلود ویدیو از پینترست
 
 on:
@@ -11,17 +12,17 @@ on:
 jobs:
   download-video:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      
+
       - name: Install yt-dlp
         run: |
-          pip install yt-dlp
-      
+          pip install -U yt-dlp
+
       - name: Create download script
         run: |
           cat > download_video.py << 'EOF'
@@ -29,73 +30,83 @@ jobs:
           import sys
           import re
           import os
-          
+
           def download_pinterest_video(pin_url):
               print("=" * 60)
               print("🎬 Pinterest Video Downloader")
               print("=" * 60)
               print(f"🔗 آدرس: {pin_url}")
               print()
-              
+
               # استخراج شناسه پین
               pin_match = re.search(r'/pin/(\d+)', pin_url)
-              if not pin_match:
-                  pin_match = re.search(r'pin\.it/([A-Za-z0-9]+)', pin_url)
-              
+
               if pin_match:
                   pin_id = pin_match.group(1)
                   output_template = f"{pin_id}.%(ext)s"
               else:
                   output_template = "pinterest_video.%(ext)s"
-              
-              # استفاده از yt-dlp برای دانلود
+
+              # دستور دانلود
               cmd = [
                   "yt-dlp",
-                  "-f", "best",
                   "-o", output_template,
                   "--no-playlist",
+                  "--extractor-args", "generic:impersonate",
                   pin_url
               ]
-              
+
               print("📥 در حال دانلود ویدیو...")
-              
+
               try:
                   result = subprocess.run(cmd, capture_output=True, text=True)
-                  
+
                   if result.returncode == 0:
-                      # پیدا کردن فایل دانلود شده
+
+                      downloaded = False
+
                       for file in os.listdir('.'):
+
                           if file.endswith(('.mp4', '.webm', '.mkv')):
+
                               file_size = os.path.getsize(file)
                               size_mb = file_size / (1024 * 1024)
+
                               print()
                               print("=" * 60)
-                              print(f"✅ دانلود کامل شد!")
+                              print("✅ دانلود کامل شد!")
                               print(f"📁 فایل: {file}")
                               print(f"📦 حجم: {size_mb:.2f} MB")
                               print("=" * 60)
-                              return True
+
+                              downloaded = True
+
+                      return downloaded
+
                   else:
                       print("❌ خطا در دانلود!")
-                      print(f"   {result.stderr}")
+                      print(result.stderr)
                       return False
+
               except Exception as e:
                   print(f"❌ خطا: {e}")
                   return False
-          
+
           if __name__ == "__main__":
+
               if len(sys.argv) < 2:
                   print("❗ نحوه استفاده: python download_video.py 'PIN_URL'")
                   sys.exit(1)
-              
+
               success = download_pinterest_video(sys.argv[1])
+
               sys.exit(0 if success else 1)
           EOF
-      
+
       - name: Run downloader
         run: |
           python download_video.py "${{ github.event.inputs.pin_url }}"
-      
+
       - name: Upload video
         uses: actions/upload-artifact@v4
         with:
@@ -106,3 +117,4 @@ jobs:
             *.mkv
           retention-days: 1
           if-no-files-found: warn
+```
